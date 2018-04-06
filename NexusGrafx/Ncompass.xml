@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+
+<muclient>
+<plugin
+   name="Compass"
+   author="Trevize/Soludra/Samakhulis"
+   id="043e0976013412f26cf9a395"
+   language="Lua"
+   purpose="Nexus compass"
+   date_written="2008-08-20"
+   requires="4.35"
+   version="2.5"
+   >
+<description trim="y">
+<![CDATA[
+Converts ATCP exit data into a miniwindow drawing of the default Nexus compass in Achaea.
+
+All exits should appear like the keys in compass.directions[] in order to be parsed correctly into the miniwindow. These include:
+   n, ne, e, se, s, sw, w, nw, d, u, i, o
+
+New Info exits: sewer, subdivision, wilderness, indoors, underwater
+
+
+Update 9-24-10:
+   ATCP exits i and o were converted to in and out. Plugin was edited to compensate for this (Note the substitution replacing "in" with "i" and "out" with "o" in the text string).
+Update 10-14-10 (2.0):
+   Added parsing for new GMCP subnegotiation.
+Update 9-12-11 (2.5):
+   Updated for major GMCP consolidation.
+]]>
+</description>
+</plugin>
+
+<triggers>
+  <trigger
+   match="You can't leave that."
+   enabled="n"
+   send_to="12"
+   keep_evaluating="y"
+   sequence="100"
+   group="exit_toggle"
+   name="wilderness_enter"
+  >
+  <send>
+   Send("leave wilderness")
+   EnableTrigger("wilderness_enter",false)
+ </send>
+  </trigger>
+
+  <trigger
+   match="You are already on the map."
+   enabled="n"
+   send_to="12"
+   keep_evaluating="y"
+   sequence="100"
+   group="exit_toggle"
+   name="subdivision_enter"
+  >
+  <send>
+   Send("leave subdivision")
+   EnableTrigger("subdivision_enter",false)
+ </send>
+  </trigger>
+  
+  <trigger match="(?s)Obvious exits:\n[^.]+\Z"
+   enabled="y" 
+   ignore_case="y" 
+   expand_variables="y" 
+   lines_to_match="5" 
+   multi_line="y" 
+   regexp="y"
+   send_to="12"
+   sequence="100"
+  >
+  <send>
+  if gmcpEnabled == 0 then
+    local text
+    text = [[%0]]
+    text = string.gsub(text, "\\n", " ")
+
+    local directions
+    
+    directions = {}
+    
+    if (string.find(text, "None") ~= nil) then
+      table.insert(directions,"None")
+    end
+
+    if (string.find(text, "North[( ,.]") ~= nil) then
+      table.insert(directions,"n")
+    end
+
+    if (string.find(text, "Northeast") ~= nil) then
+      table.insert(directions,"ne")
+    end
+
+    if (string.find(text, "East[( ,.]") ~= nil) then
+      table.insert(directions,"e")
+    end
+
+    if (string.find(text, "Southeast") ~= nil) then
+      table.insert(directions,"se")
+    end
+
+    if (string.find(text, "South[( ,.]") ~= nil) then
+      table.insert(directions,"s")
+    end
+
+    if (string.find(text, "Southwest") ~= nil) then
+      table.insert(directions,"sw")
+    end
+
+    if (string.find(text, "West[( ,.]") ~= nil) then
+      table.insert(directions,"w")
+    end
+
+    if (string.find(text, "Northwest") ~= nil) then
+      table.insert(directions,"nw")
+    end
+
+    if (string.find(text, "Up[( ,.]") ~= nil) then
+      table.insert(directions,"u")
+    end
+
+    if (string.find(text, "Down[( ,.]") ~= nil) then
+      table.insert(directions,"d")
+    end
+
+    if (string.find(text, "In[( ,.]") ~= nil) then
+      table.insert(directions,"i")
+    end
+
+    if (string.find(text, "Out[( ,.]") ~= nil) then
+      table.insert(directions,"o")
+    end 
+    
+    sExitLine = table.concat(directions, ',')
+    compass.active = utils.split(sExitLine,",")
+	compass.draw()
+  end -- not GMCP
+  </send>
+  </trigger>
+</triggers>
+
+<aliases>
+
+  <alias
+   match="enterwild"
+   enabled="y"
+   group="exit_toggle"
+   sequence="100"
+   send_to="12"
+  >
+  <send>
+  EnableTrigger("wilderness_enter",true)
+  Send("enter wilderness")
+  </send>
+  </alias>
+
+  <alias
+   match="entersub"
+   enabled="y"
+   group="exit_toggle"
+   sequence="100"
+   send_to="12"
+  >
+  <send>
+  EnableTrigger("subdivision_enter",true)
+  Send("enter subdivision")
+  </send>
+  </alias>
+
+</aliases>
+
+<script><![CDATA[
+dofile(GetInfo(60) .. "Custom\\GMCP_Functions.lua")
+idGMCP = "fd1317dca87167934e167aa2"
+gmcpEnabled = 0
+--loadstring(GetPluginVariable("7c08e2961c5e20e5bdbf7fc5", "Utilities"))()
+
+Z = {
+  tpairs = function (tbl)
+    local i = 0
+    return function ()
+      i = i + 1
+      if tbl[i] ~= nil then return tbl[i] end
+    end -- func
+  end, -- func
+
+  ansicolor = function (fore, back)
+    local bold = false
+    local fore = tonumber (fore) or 7
+    if fore >= 0 and fore <= 7 then
+      fore = fore + 30
+    elseif fore >= 8 and fore <= 15 then
+      fore = fore + 22
+      bold = true
+    else
+      fore = 37
+    end -- if
+    local back = tonumber (back) or 0
+    if back > 0 and back <= 7 then
+      back = back + 40
+    else
+      back = 40
+    end -- if
+    if not bold then
+      return ANSI (0, fore, back)
+    else
+      return ANSI (0, fore, 1, back)
+    end -- if
+  end, -- func
+  }
+
+tpairs = Z.tpairs
+ansicolor = Z.ansicolor
+
+
+
+if string.sub (GetInfo (60), 1, 1) == "." then
+  plugindir = GetInfo (66) .. string.sub (GetInfo (60), 3)
+else
+  plugindir = GetInfo (60)
+end -- if
+
+
+
+function OnPluginBroadcast (msg, id, name, text)
+gmcpEnabled = 1
+if (id == idGMCP) then
+	if (msg == 201) then
+		json = require("json")
+		module, data = SplitGMCP(text)
+		if module == "Room.Info" then
+		
+			t = json.decode(data)
+			tExitLine = {}
+			sExitLine = ""
+			
+
+				for k, v in pairs(t.exits) do
+					table.insert(tExitLine,k)
+					sExitLine = table.concat(tExitLine, ',')
+				end -- for
+
+				for k, v in pairs(t.details) do
+					if v ~= "" then
+						if v == "subdivision" or v == "wilderness" then
+							table.insert(tExitLine,v)
+							sExitLine = table.concat(tExitLine, ',')
+						end -- if
+					end -- if
+				end -- for
+				
+				
+			if sExitLine == nil then
+				sExitLine = "none"
+			else
+				sExitLine = string.gsub(sExitLine,"out","o")
+				sExitLine = string.gsub(sExitLine,"in","i")
+				sExitLine = string.gsub(sExitLine,"subdivision","sub")
+				sExitLine = string.gsub(sExitLine,"wilderness","wild")
+				--Note(sExitLine)
+			end -- if ExitLine is not blank
+
+			compass.active = utils.split(sExitLine,",")
+			compass.draw()
+
+		end -- if Room.Info
+	end -- if 201
+end -- if GMCP
+end -- func
+
+
+
+function mousedown (a, dir)
+  local t = {i = "in", o = "out", sub = "entersub", wild = "enterwild"}
+  local com = t[dir] or dir
+  Execute (com)
+end -- func
+
+
+
+compass = {
+  name = GetWorldID () .. "2",
+
+  directions = {
+    n  = true,
+    ne = true,
+    e  = true,
+    se = true,
+    s  = true,
+    sw = true,
+    w  = true,
+    nw = true,
+    u  = true,
+    d  = true,
+    i  = true,
+    o  = true,
+    sub = true,
+    wild = true,
+	none = true,
+    },
+
+
+  location = {
+    n  = {57, 25},
+    ne = {73, 37},
+    e  = {80, 57},
+    se = {73, 72},
+    s  = {57, 80},
+    sw = {38, 72},
+    w  = {27, 57},
+    nw = {38, 38},
+    u  = {115, 31},
+    d  = {115, 79},
+    i  = {81, 116},
+    o  = {33, 114},
+    sub = {52,62},
+    wild = {52,52},
+	none = {0, 0},
+    },
+
+  dimension = {},
+
+  active = {},
+
+  create = function ()
+    for dir in tpairs (compass.active) do
+      if compass.directions[dir] then
+        local left = compass.location[dir][1]
+        local top = compass.location[dir][2]
+        local right = compass.location[dir][1] + compass.dimension[dir][1]
+        local bottom = compass.location[dir][2] + compass.dimension[dir][2]
+        WindowDrawImage (compass.name, dir,
+                         left, top, right, bottom, 1)
+        WindowAddHotspot (compass.name, dir,
+                          left, top, right, bottom,
+                          "", "", "mousedown", "", "", "", 0, 0)
+      end -- if
+    end -- for
+  end, -- func
+
+  draw = function ()
+    WindowDrawImage (compass.name, "compass", 0, 0, 0, 0, 1)
+    WindowDeleteAllHotspots (compass.name)
+    compass.create ()
+  end, -- func
+
+  err = function (x)
+    AnsiNote (ansicolor(), "Compass disabled, image not found. Compass images should be in:")
+    AnsiNote (ansicolor(), plugindir .. "Custom\compass")
+    EnablePlugin (GetPluginID (), false)
+    WindowDelete (compass.name)
+  end, -- func
+  }
+
+WindowCreate (compass.name, 0, 0, 150, 150, 4, 0, ColourNameToRGB ("black"))
+x = WindowLoadImage (compass.name, "compass", plugindir .. [[Custom\compass\compass.bmp]])
+for dir in pairs (compass.directions) do
+  y = WindowLoadImage (compass.name, dir, plugindir .. [[Custom/compass/arrow_]] .. dir .. ".bmp")
+  compass.dimension[dir] = {}
+  compass.dimension[dir][1] = WindowImageInfo(compass.name, dir, 2)
+  compass.dimension[dir][2] = WindowImageInfo(compass.name, dir, 3)
+end -- for
+compass.draw ()
+WindowShow (compass.name, true)
+if (x ~= 0) or (y ~= 0) then compass.err (x or y) else x, y = nil, nil end
+
+]]></script> 
+
+</muclient>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+
+<muclient>
+<plugin
+   name="Composer"
+   author="Soludra/Samakhulis"
+   id="0860ccb8e0e7478111110293"
+   language="Lua"
+   purpose="Using Soludra's Modified ATCP Functions to create a composer window."
+   date_written="2010-01-22"
+   requires="4.35"
+   version="3.1"
+   >
+<description>
+<![CDATA[
+10-14-10:
+  Version 2.0: Added parsing options for GMCP format.
+9-17-11:
+  Version 3.0: Moved GMCP decoding to this plugin, rather than transmitting via the main GMCP plugin.
+  Version 3.1: Forgot to actually do the json.decode on the GMCP data. This is now fixed.
+]]>
+</description>
+</plugin>
+
+<aliases>
+  <alias
+   match="scmp"
+   enabled="y"
+   send_to="12"
+   sequence="100"
+   omit_from_output="y"
+   omit_from_log="y"
+   group="composer"
+  >
+  <send>if GetNotepadText("composer") ~= "" then
+      SendNoEcho("*clear")
+      SendNoEcho("yes")
+      SendNoEcho(GetNotepadText ("composer"))
+      SendNoEcho("*s")
+    else
+      SendNoEcho("*clear")
+      SendNoEcho("yes")
+      SendNoEcho("*s")
+    end -- if
+
+    CloseNotepad("composer",0)
+   </send>
+  </alias>
+  <alias
+   match="gcmp"
+   enabled="y"
+   send_to="12"
+   omit_from_output="y"
+   omit_from_log="y"
+   sequence="100"
+   group="composer"
+  >
+  <send>Note (GetNotepadText ("composer"))</send>
+  </alias>
+    <alias
+     match="ccmp"
+     enabled="y"
+     send_to="12"
+     sequence="100"
+     omit_from_output="y"
+     omit_from_log="y"
+     group="composer"
+    >
+    <send>SendNoEcho("*q")
+    SendNoEcho("no")
+    CloseNotepad("composer",0)</send>
+  </alias>
+  <alias
+   match="cmphelp"
+   enabled="y"
+   send_to="12"
+   sequence="100"
+   omit_from_output="y"
+   omit_from_log="y"
+   group="composer"
+  >
+  <send>Note("Start Editor. Notepad window will open for editing.")
+  Note("SCMP - Write Notepad to Editor and Save")
+  Note("GCMP - World.Note Notepad to Output Window")
+  Note("CCMP - Cancel and exit Editor")</send>
+  </alias>
+</aliases>
+
+<script><![CDATA[
+dofile(GetInfo(60) .. "Custom\\GMCP_Functions.lua")
+idGMCP = "fd1317dca87167934e167aa2"
+
+--loadstring(GetPluginVariable("7c08e2961c5e20e5bdbf7fc5", "Utilities"))()
+
+
+OnPluginBroadcast = function (msg, id, name, text)
+if (id == idGMCP) then
+	if (msg == 201) then
+    	json = require("json")
+		module, data = SplitGMCP(text)
+		if module == "IRE.Composer.Edit" then
+			t = json.decode(data)
+			ctext = string.gsub(t.text, "\n", "\r\n")
+	        CloseNotepad(t.title,0)
+	        SendToNotepad (t.title, ctext)
+	      	MoveNotepadWindow("composer", 170, 20, 800, 400)
+	      	WindowAddHotspot (win, "CompFrontHS", 15,0,150,25,"","","mousedown","","","Bring Composer window to front",1,0)
+	      	WindowAddHotspot (win, "CompSaveHS",2, 30, 76, 62,"", "", "mousedown", "", "", "Save Composer to Editor", 1, 0)
+			WindowAddHotspot (win, "CompCancelHS", 78,30,149,62,"","","mousedown","","","Cancel Composer Window and Leave",1,0)
+		end -- if IRE.Composer.Edit
+	end -- if 201
+end -- if GMCP
+end -- func
+
+mousedown = function (a, ID)
+  if ID=="CompSaveHS" then
+  	Execute("scmp")
+  	WindowDeleteHotspot(win,"CompSaveHS")
+  	WindowDeleteHotspot(win,"CompCancelHS")
+  	WindowDeleteHotspot(win,"CompFrontHS")
+  	return
+  else 
+  	if ID=="CompCancelHS" then
+  		Execute("ccmp")
+  		WindowDeleteHotspot(win,"CompSaveHS")
+  		WindowDeleteHotspot(win,"CompCancelHS")
+  		WindowDeleteHotspot(win,"CompFrontHS")
+  		return
+  	else
+  		ActivateNotepad("composer")
+  	end -- if
+  end -- if
+end -- func
+
+win="ComposerMW"
+WindowCreate (win, 0, 240, 150, 70, 4, 2, ColourNameToRGB ("#000000"))
+WindowFont (win, "f", "Trebuchet MS", 24, true, false, false, false)
+WindowFont (win, "f2", "Trebuchet MS", 18, true, false, false, false)
+WindowRectOp (win, 5, 2, 30, 76, 62, 5, 15+ 0x800 + 0x1000)
+WindowRectOp (win, 5, 78,30,149,62,5,15+ 0x800 + 0x1000)
+WindowRectOp (win, 1, 0, 0, 150, 66, ColourNameToRGB("white"))
+WindowText (win, "f2", "Composer",15,0,150,75,ColourNameToRGB ("white"),false)
+WindowText (win, "f","Save",5, 25, 75, 75,ColourNameToRGB ("black"),false)
+WindowText (win, "f","Exit",82, 25, 150, 75, ColourNameToRGB("black"),false)
+WindowShow(win,true)
+]]></script> 
+
+</muclient>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+
+<muclient>
+<plugin
+   name="Gauges"
+   author="Trevize/Soludra"
+   id="0860ccb8e0e747814da4d907"
+   language="Lua"
+   purpose="Nexus gauges"
+   date_written="2008-08-21"
+   requires="4.35"
+   version="2.0"
+   >
+   <description>
+   <![CDATA[
+   10-14-10
+     Version 2.0: Added parsing options for GMCP format.
+   ]]>
+</description>
+</plugin>
+
+<script><![CDATA[
+dofile(GetInfo(60) .. "Custom\\GMCP_Functions.lua")
+idGMCP = "fd1317dca87167934e167aa2"
+
+--loadstring(GetPluginVariable("7c08e2961c5e20e5bdbf7fc5", "Utilities"))()
+
+-- images from Nexus thanks to Dusty
+
+Z = {
+  tpairs = function (tbl)
+    local i = 0
+    return function ()
+      i = i + 1
+      if tbl[i] ~= nil then return tbl[i] end
+    end -- func
+  end, -- func
+
+  ansicolor = function (fore, back)
+    local bold = false
+    local fore = tonumber (fore) or 7
+    if fore >= 0 and fore <= 7 then
+      fore = fore + 30
+    elseif fore >= 8 and fore <= 15 then
+      fore = fore + 22
+      bold = true
+    else
+      fore = 37
+    end -- if
+    local back = tonumber (back) or 0
+    if back > 0 and back <= 7 then
+      back = back + 40
+    else
+      back = 40
+    end -- if
+    if not bold then
+      return ANSI (0, fore, back)
+    else
+      return ANSI (0, fore, 1, back)
+    end -- if
+  end, -- func
+  }
+
+tpairs = Z.tpairs
+ansicolor = Z.ansicolor
+
+
+
+if string.sub (GetInfo (60), 1, 1) == "." then
+  plugindir = GetInfo (66) .. string.sub (GetInfo (60), 3)
+else
+  plugindir = GetInfo (60)
+end -- if
+
+
+
+OnPluginBroadcast = function (msg, id, name, text)
+if (id == idGMCP) then
+	if (msg == 201) then
+		json = require("json")
+		module, data = SplitGMCP(text)
+		
+		if module == "Char.Vitals" then
+			t = json.decode(data)
+			sStats = t["string"]
+			local a, b
+			a, b, stats.health, stats.maxhealth, stats.mana, stats.maxmana, stats.endurance, stats.maxendurance, stats.willpower, stats.maxwillpower, stats.exp, stats.expdec, stats.maxexp = string.find (sStats, "H:(%d+)/(%d+) M:(%d+)/(%d+) E:(%d+)/(%d+) W:(%d+)/(%d+) NL:(%d+).(%d+)/(%d+)")
+			gauges.draw ()
+		end -- if Char.Vitals
+	end -- if 201
+end -- if GMCP
+end -- func
+
+
+
+stats = {
+  health     = 100, maxhealth    = 100,
+  mana       = 100, maxmana      = 100,
+  willpower  = 100, maxwillpower = 100,
+  endurance  = 100, maxendurance = 100,
+  exp        = 0,   maxexp       = 100,
+
+  percent = function (stat)
+    local x = math.floor (stats[stat]/stats["max" .. stat]*100)
+    if x > 100 then x = 100 elseif x < 0 then x = 0 end
+    return x
+  end, -- func
+  }
+
+
+
+gauges = {
+  name = GetWorldID () .. "1",
+
+  position = {28, 53, 68, 83, 98},
+
+  create = function (stat, pos)
+    local width = math.floor (stats.percent (stat)/2)
+    local top = gauges.position[pos]
+    if width > 0 then
+      WindowDrawImage (gauges.name, stat,
+                       56, top, 0, 0, 1,
+                       0, 0, width, 0)
+    end -- if
+  end, -- func
+
+  draw = function ()
+    WindowDrawImage (gauges.name, "gauges", 0, 0, 0, 0, 1)
+    gauges.create ("exp",       1)
+    gauges.create ("health",    2)
+    gauges.create ("mana",      3)
+    gauges.create ("endurance", 4)
+    gauges.create ("willpower", 5)
+  end, -- func
+
+  err = function (x)
+    AnsiNote (ansicolor(), "Gauges disabled, image not found. Gauges images should be in:")
+    AnsiNote (ansicolor(), plugindir .. "Custom\gauges")
+    EnablePlugin (GetPluginID (), false)
+    WindowDelete (gauges.name)
+  end, -- func
+  }
+
+WindowCreate (gauges.name, 0, 315, 150, 139, 10, 2, ColourNameToRGB ("black"))
+x = WindowLoadImage (gauges.name, "gauges", plugindir .. [[Custom\gauges\gauges.bmp]])
+imagenames = {"health", "mana", "endurance", "willpower", "exp"}
+for stat in tpairs (imagenames) do
+  y = WindowLoadImage (gauges.name, stat, plugindir .. [[Custom\gauges\]] .. stat .. ".bmp")
+end -- for
+gauges.draw ()
+WindowShow (gauges.name, true)
+if (x ~= 0) or (y ~= 0) then gauges.err (x or y) else x, y = nil, nil end
+
+]]></script> 
+
+</muclient>

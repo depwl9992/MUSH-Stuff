@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+
+<muclient>
+<plugin
+   name="VoteButton"
+   author="Soludra/Samakhulis"
+   id="043e0976013412f210292929"
+   language="Lua"
+   purpose="Vote Button using Soludra's modified ATCP"
+   date_written="2010-02-18"
+   requires="4.35"
+   version="1.05"
+   >
+</plugin>
+
+<script><![CDATA[
+
+--loadstring(GetPluginVariable("7c08e2961c5e20e5bdbf7fc5", "Utilities"))()
+
+OnPluginBroadcast = function (msg, id, name, text)
+  if (id == idATCP) then
+    if (msg == 0) then
+      EnableModuleATCP("topvote")
+    else
+     msg, text = UnpackATCP(text)
+      if (msg == "Client.VoteReminder" and text ~= "") then
+        Note(msg)
+	    Note(text)
+        --WindowAddHotspot (win, "hs",2, 10, 148, 68,"", "", "mousedown", "", "", "Vote for Achaea on Top Mud Sites", 1, 0)
+      end -- if
+    end -- if
+  end -- if
+end -- func
+
+mousedown = function (a, ID)
+  OpenBrowser("http://www.ironrealms.com/irex/tmsvote.php?id=achaea")
+  WindowDeleteHotspot(win,"hs")
+end -- func
+
+win="VoteMW"
+WindowCreate (win, 0, 155, 150, 80, 4, 2, ColourNameToRGB ("#000000"))
+WindowFont (win, "f", "Trebuchet MS", 42, true, false, false, false)
+WindowRectOp (win, 5, 2, 10, 148, 68, 5, 15+ 0x800 + 0x1000)
+WindowRectOp (win, 1, 0, 0, 150, 78, ColourNameToRGB("white"))
+WindowText (win, "f","Vote!",5, 5, 0, 150,ColourNameToRGB ("black"),false)
+WindowShow(win,true)
+]]></script> 
+
+<triggers>
+ <trigger
+  enabled="y"
+  keep_evaluating="y"
+  match="^([0-9]+)h\, ([0-9]+)m\, ([0-9]+)e\, ([0-9]+)w (?P&lt;flags&gt;c?e?x?k?d?b?@?) Vote?\-"
+  regexp="y"
+  send_to="12"
+  sequence="2"
+  group="Vote"
+ >
+ <send>WindowAddHotspot (win, "hs",2, 10, 148, 68,"", "", "mousedown", "", "", "Vote for Achaea on Top Mud Sites", 1, 0)
+  </send>
+ </trigger>
+</triggers>
+
+</muclient>
